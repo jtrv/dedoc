@@ -2,7 +2,9 @@ use toiletcli::flags;
 use toiletcli::flags::*;
 
 use crate::common::ResultS;
-use crate::common::{deserialize_docs_json, get_local_docsets, is_docs_json_exists, get_flag_error};
+use crate::common::{
+    deserialize_docs_json, get_flag_error, get_local_docsets, is_docs_json_exists,
+};
 use crate::common::{BOLD, GREEN, PROGRAM_NAME, RESET};
 
 fn show_list_help() -> ResultS {
@@ -37,9 +39,10 @@ where
         flag_help: BoolFlag,     ["--help"]
     ];
 
-    parse_flags(&mut args, &mut flags)
-        .map_err(|err| get_flag_error(&err))?;
-    if flag_help { return show_list_help(); }
+    parse_flags(&mut args, &mut flags).map_err(|err| get_flag_error(&err))?;
+    if flag_help {
+        return show_list_help();
+    }
 
     if !is_docs_json_exists()? {
         return Err("The list of available documents has not yet been downloaded. Please run `fetch` first.".to_string());

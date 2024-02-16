@@ -4,24 +4,25 @@ use std::path::PathBuf;
 
 use attohttpc::get;
 
+use serde::de::{Error, MapAccess, Visitor};
 use serde::Deserializer;
-use serde::de::{Visitor, Error, MapAccess};
 
 use toiletcli::flags;
 use toiletcli::flags::*;
 
+use crate::common::{
+    deserialize_docs_json, get_docset_path, get_flag_error, is_docs_json_exists,
+    is_docset_downloaded, is_docset_in_docs_or_print_warning,
+};
 use crate::common::{Docs, ResultS};
 use crate::common::{
-    deserialize_docs_json, get_docset_path, is_docs_json_exists, is_docset_downloaded,
-    is_docset_in_docs_or_print_warning, get_flag_error
-};
-use crate::common::{
-    BOLD, DEFAULT_DB_JSON_LINK, DEFAULT_USER_AGENT, GREEN, PROGRAM_NAME, RESET, VERSION
+    BOLD, DEFAULT_DB_JSON_LINK, DEFAULT_USER_AGENT, GREEN, PROGRAM_NAME, RESET, VERSION,
 };
 use crate::print_warning;
 
 fn show_download_help() -> ResultS {
-    println!("\
+    println!(
+        "\
 {GREEN}USAGE{RESET}
     {BOLD}{PROGRAM_NAME} download{RESET} [-f] <docset1> [docset2, ..]
     Download a docset. Available docsets can be displayed using `list`.
@@ -33,10 +34,7 @@ fn show_download_help() -> ResultS {
     Ok(())
 }
 
-fn download_db_and_index_json_with_progress(
-    docset_name: &String,
-    docs: &[Docs],
-) -> ResultS {
+fn download_db_and_index_json_with_progress(docset_name: &String, docs: &[Docs]) -> ResultS {
     let user_agent = format!("{DEFAULT_USER_AGENT}/{VERSION}");
 
     for entry in docs.iter() {
@@ -44,8 +42,9 @@ fn download_db_and_index_json_with_progress(
             let docset_path = get_docset_path(docset_name)?;
 
             if !docset_path.exists() {
-                create_dir_all(&docset_path)
-                    .map_err(|err| format!("Cannot create `{}` directory: {err}", docset_path.display()))?;
+                create_dir_all(&docset_path).map_err(|err| {
+                    format!("Cannot create `{}` directory: {err}", docset_path.display())
+                })?;
             }
 
             for (file_name, i) in [("db.json", 1), ("index.json", 2)] {
@@ -54,7 +53,10 @@ fn download_db_and_index_json_with_progress(
                 let file = File::create(&file_path)
                     .map_err(|err| format!("Could not create `{}`: {err}", file_path.display()))?;
 
-                let download_link = format!("{DEFAULT_DB_JSON_LINK}/{docset_name}/{}?{}", file_name, entry.mtime);
+                let download_link = format!(
+                    "{DEFAULT_DB_JSON_LINK}/{docset_name}/{}?{}",
+                    file_name, entry.mtime
+                );
 
                 let response = get(&download_link)
                     .header_append("user-agent", &user_agent)
@@ -115,24 +117,24 @@ fn sanitize_html_line(html_line: String) -> String {
                 }
                 sanitized_line.push(ch);
             }
-            State::InTag => {
-                match ch {
-                    'd' if position + 15 < length && bytes[position..position + 15] == *b"data-language=\"" => {
-                        state = State::InKey;
-                    }
-                    't' if position + 7 < length && bytes[position..position + 7] == *b"title=\"" => {
-                        state = State::InKey;
-                    }
-                    'c' if position + 7 < length && bytes[position..position + 7] == *b"class=\"" => {
-                        state = State::InKey;
-                    }
-                    '>' => {
-                        state = State::Default;
-                        sanitized_line.push(ch);
-                    }
-                    _ => sanitized_line.push(ch)
+            State::InTag => match ch {
+                'd' if position + 15 < length
+                    && bytes[position..position + 15] == *b"data-language=\"" =>
+                {
+                    state = State::InKey;
                 }
-            }
+                't' if position + 7 < length && bytes[position..position + 7] == *b"title=\"" => {
+                    state = State::InKey;
+                }
+                'c' if position + 7 < length && bytes[position..position + 7] == *b"class=\"" => {
+                    state = State::InKey;
+                }
+                '>' => {
+                    state = State::Default;
+                    sanitized_line.push(ch);
+                }
+                _ => sanitized_line.push(ch),
+            },
             State::InKey => {
                 if ch == '\"' {
                     state = State::InValue;
@@ -168,7 +170,8 @@ where
     let docset_path = get_docset_path(docset_name)?;
     let mut unpacked_amount = 1;
 
-    while let Some((file_path, contents)) = map.next_entry::<String, String>()
+    while let Some((file_path, contents)) = map
+        .next_entry::<String, String>()
         .map_err(|err| err.to_string())?
     {
         #[cfg(target_family = "windows")]
@@ -191,7 +194,8 @@ where
 
         let sanitized_contents = sanitize_html_line(contents);
 
-        writer.write_all(sanitized_contents.trim().as_bytes())
+        writer
+            .write_all(sanitized_contents.trim().as_bytes())
             .map_err(|err| format!("Could not write to `{}`: {err}", file_path.display()))?;
 
         print!("Unpacked {unpacked_amount} files...\r");
@@ -204,7 +208,7 @@ where
 }
 
 struct FileVisitor {
-    docset_name: String
+    docset_name: String,
 }
 
 impl<'de> Visitor<'de> for FileVisitor {
@@ -218,19 +222,19 @@ impl<'de> Visitor<'de> for FileVisitor {
     where
         M: MapAccess<'de>,
     {
-        build_docset_from_map_with_progress(&self.docset_name, map)
-            .map_err(|err| Error::custom(format!("Error while building `{}`: {err}", self.docset_name)))?;
+        build_docset_from_map_with_progress(&self.docset_name, map).map_err(|err| {
+            Error::custom(format!(
+                "Error while building `{}`: {err}",
+                self.docset_name
+            ))
+        })?;
         Ok(())
     }
 }
 
-fn build_docset_from_db_json(
-    docset_name: &String,
-) -> ResultS {
+fn build_docset_from_db_json(docset_name: &String) -> ResultS {
     let docset_path = get_docset_path(docset_name)?;
-    let db_json_path = docset_path
-        .join("db")
-        .with_extension("json");
+    let db_json_path = docset_path.join("db").with_extension("json");
 
     let file = File::open(&db_json_path)
         .map_err(|err| format!("Could not open `{}`: {err}", db_json_path.display()))?;
@@ -239,12 +243,19 @@ fn build_docset_from_db_json(
 
     let mut db_json_deserializer = serde_json::Deserializer::from_reader(reader);
 
-    let file_visitor = FileVisitor { docset_name: docset_name.to_owned() };
-    db_json_deserializer.deserialize_map(file_visitor)
+    let file_visitor = FileVisitor {
+        docset_name: docset_name.to_owned(),
+    };
+    db_json_deserializer
+        .deserialize_map(file_visitor)
         .map_err(|err| format!("Could not deserialize `{}`: {err}", db_json_path.display()))?;
 
-    remove_file(&db_json_path)
-        .map_err(|err| format!("Could not remove `{}` after building {docset_name}: {err}", db_json_path.display()))?;
+    remove_file(&db_json_path).map_err(|err| {
+        format!(
+            "Could not remove `{}` after building {docset_name}: {err}",
+            db_json_path.display()
+        )
+    })?;
 
     Ok(())
 }
@@ -261,9 +272,10 @@ where
         flag_help: BoolFlag,  ["--help"]
     ];
 
-    let args = parse_flags(&mut args, &mut flags)
-        .map_err(|err| get_flag_error(&err))?;
-    if flag_help || args.is_empty() { return show_download_help(); }
+    let args = parse_flags(&mut args, &mut flags).map_err(|err| get_flag_error(&err))?;
+    if flag_help || args.is_empty() {
+        return show_download_help();
+    }
 
     if !is_docs_json_exists()? {
         return Err("The list of available documents has not yet been downloaded. Please run `fetch` first.".to_string());
@@ -297,9 +309,9 @@ where
     }
 
     match successful_downloads {
-        0   => {}
-        1   => println!("{BOLD}Install has successfully finished{RESET}."),
-        _   => println!("{BOLD}{successful_downloads} items were successfully installed{RESET}."),
+        0 => {}
+        1 => println!("{BOLD}Install has successfully finished{RESET}."),
+        _ => println!("{BOLD}{successful_downloads} items were successfully installed{RESET}."),
     }
 
     Ok(())

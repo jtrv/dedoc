@@ -4,12 +4,13 @@ use toiletcli::flags;
 use toiletcli::flags::*;
 
 use crate::common::ResultS;
-use crate::common::{get_docset_path, is_docset_downloaded, get_local_docsets, get_flag_error};
+use crate::common::{get_docset_path, get_flag_error, get_local_docsets, is_docset_downloaded};
 use crate::common::{BOLD, GREEN, PROGRAM_NAME, RESET, YELLOW};
 use crate::print_warning;
 
 fn show_remove_help() -> ResultS {
-    println!("\
+    println!(
+        "\
 {GREEN}USAGE{RESET}
     {BOLD}{PROGRAM_NAME} remove{RESET} <docset1> [docset2, ...]
     Delete a docset. Only docsets downloaded by {PROGRAM_NAME} can be removed.
@@ -26,10 +27,14 @@ fn is_name_allowed<S: AsRef<str>>(docset_name: &S) -> bool {
 
     let has_slashes = {
         #[cfg(target_family = "windows")]
-        { docset.contains('\\') || docset.contains('/') }
+        {
+            docset.contains('\\') || docset.contains('/')
+        }
 
         #[cfg(target_family = "unix")]
-        { docset.contains('/') }
+        {
+            docset.contains('/')
+        }
     };
 
     let starts_with_tilde = docset.starts_with('~');
@@ -53,8 +58,7 @@ where
         flag_purge_all: BoolFlag, ["--purge-all"]
     ];
 
-    let args = parse_flags(&mut args, &mut flags)
-        .map_err(|err| get_flag_error(&err))?;
+    let args = parse_flags(&mut args, &mut flags).map_err(|err| get_flag_error(&err))?;
 
     if flag_purge_all {
         let local_docsets = get_local_docsets()?;
@@ -67,7 +71,9 @@ where
         return Ok(());
     }
 
-    if flag_help || args.is_empty() { return show_remove_help(); }
+    if flag_help || args.is_empty() {
+        return show_remove_help();
+    }
 
     for docset in args.iter() {
         if !is_name_allowed(docset) {
@@ -79,8 +85,9 @@ where
             let docset_path = get_docset_path(docset)?;
             if docset_path.exists() {
                 println!("Removing `{docset}` from `{}`...", docset_path.display());
-                remove_dir_all(&docset_path)
-                    .map_err(|err| format!("Unable to remove `{}`: {err}", docset_path.display()))?;
+                remove_dir_all(&docset_path).map_err(|err| {
+                    format!("Unable to remove `{}`: {err}", docset_path.display())
+                })?;
             }
         } else {
             print_warning!("{YELLOW}WARNING{RESET}: `{docset}` is not installed.");
@@ -96,14 +103,14 @@ mod tests {
 
     #[test]
     fn test_sanitize_names() {
-         let bad_name_path = "/what";
-         let bad_name_home = "~";
-         let bad_name_dots = "..";
-         let bad_name_env  = "$HOME";
+        let bad_name_path = "/what";
+        let bad_name_home = "~";
+        let bad_name_dots = "..";
+        let bad_name_env = "$HOME";
 
-         let good_name_simple  = "hello";
-         let good_name_version = "qt~6.1";
-         let good_name_long    = "scala~2.13_reflection";
+        let good_name_simple = "hello";
+        let good_name_version = "qt~6.1";
+        let good_name_long = "scala~2.13_reflection";
 
         assert!(!is_name_allowed(&bad_name_path));
         assert!(!is_name_allowed(&bad_name_home));

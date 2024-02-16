@@ -12,16 +12,18 @@ use toiletcli::flags::*;
 
 use crate::common::ResultS;
 use crate::common::{
-    deserialize_docs_json, get_docset_path, get_program_directory, is_docs_json_exists,
-    is_docset_in_docs_or_print_warning, print_page_from_docset, is_docset_downloaded,
-    split_to_item_and_fragment, get_flag_error, get_terminal_width
+    deserialize_docs_json, get_docset_path, get_flag_error, get_program_directory,
+    get_terminal_width, is_docs_json_exists, is_docset_downloaded,
+    is_docset_in_docs_or_print_warning, print_page_from_docset, split_to_item_and_fragment,
 };
-use crate::common::{BOLD, GREEN, PROGRAM_NAME, LIGHT_GRAY, GRAY, GRAYER, GRAYEST,
-                    RESET, DOC_PAGE_EXTENSION};
+use crate::common::{
+    BOLD, DOC_PAGE_EXTENSION, GRAY, GRAYER, GRAYEST, GREEN, LIGHT_GRAY, PROGRAM_NAME, RESET,
+};
 use crate::print_warning;
 
 fn show_search_help() -> ResultS {
-    println!("\
+    println!(
+        "\
 {GREEN}USAGE{RESET}
     {BOLD}{PROGRAM_NAME} search{RESET} [-wipofc] <docset> <query>
     List docset pages that match your query.
@@ -38,23 +40,20 @@ fn show_search_help() -> ResultS {
     Ok(())
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 struct ExactResult {
     item: String,
     fragment: Option<String>,
 }
 
-#[derive(Serialize, Deserialize)]
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Clone)]
 struct VagueResult {
     item: String,
     contexts: Vec<String>,
 }
 
 // Flags that change search result must be added here for cache to be updated.
-#[derive(Serialize, Deserialize)]
-#[derive(Default, PartialEq, Clone)]
+#[derive(Serialize, Deserialize, Default, PartialEq, Clone)]
 struct SearchFlags {
     case_insensitive: bool,
     precise: bool,
@@ -64,12 +63,11 @@ struct SearchFlags {
 
 // Sometimes search results are big, and it's cheaper to check a small file if current search
 // options match cached ones, to deserialize the whole search cache.
-#[derive(Serialize, Deserialize)]
-#[derive(PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq)]
 pub(crate) struct SearchOptions<'a> {
-    query:  Cow<'a, str>,
+    query: Cow<'a, str>,
     docset: Cow<'a, str>,
-    flags:  Cow<'a, SearchFlags>,
+    flags: Cow<'a, SearchFlags>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -86,7 +84,8 @@ pub(crate) fn try_use_cache<'a>(search_options: &SearchOptions) -> Option<Search
         let cache_options_file = File::open(cache_options_path).ok()?;
         let cache_options_reader = BufReader::new(cache_options_file);
 
-        let cached_search_options: SearchOptions = serde_json::from_reader(cache_options_reader).ok()?;
+        let cached_search_options: SearchOptions =
+            serde_json::from_reader(cache_options_reader).ok()?;
 
         if cached_search_options != *search_options {
             return None;
@@ -103,27 +102,36 @@ pub(crate) fn try_use_cache<'a>(search_options: &SearchOptions) -> Option<Search
     Some(cache)
 }
 
-fn cache_search_results(
-    search_options: &SearchOptions,
-    search_cache:   &SearchCache,
-) -> ResultS {
+fn cache_search_results(search_options: &SearchOptions, search_cache: &SearchCache) -> ResultS {
     let program_dir = get_program_directory()?;
 
     {
         let cache_options_path = program_dir.join("search_cache_options.json");
-        let cache_options_file = File::create(&cache_options_path)
-            .map_err(|err| format!("Could not create cache options at `{}`: {err}", cache_options_path.display()))?;
+        let cache_options_file = File::create(&cache_options_path).map_err(|err| {
+            format!(
+                "Could not create cache options at `{}`: {err}",
+                cache_options_path.display()
+            )
+        })?;
 
         let cache_options_writer = BufWriter::new(cache_options_file);
 
-        serde_json::to_writer(cache_options_writer, &search_options)
-            .map_err(|err| format!("Could not write cache options at `{}`: {err}", cache_options_path.display()))?;
+        serde_json::to_writer(cache_options_writer, &search_options).map_err(|err| {
+            format!(
+                "Could not write cache options at `{}`: {err}",
+                cache_options_path.display()
+            )
+        })?;
     }
 
     {
         let cache_path = program_dir.join("search_cache.json");
-        let cache_file = File::create(&cache_path)
-            .map_err(|err| format!("Could not create cache at `{}`: {err}", cache_path.display()))?;
+        let cache_file = File::create(&cache_path).map_err(|err| {
+            format!(
+                "Could not create cache at `{}`: {err}",
+                cache_path.display()
+            )
+        })?;
 
         let cache_writer = BufWriter::new(cache_file);
 
@@ -145,7 +153,7 @@ struct IndexEntry {
 
 #[derive(Deserialize)]
 struct IndexJson {
-    entries: Vec<IndexEntry>
+    entries: Vec<IndexEntry>,
 }
 
 type ExactMatches = Vec<ExactResult>;
@@ -159,8 +167,12 @@ fn search_docset_in_filenames(
     let docset_path = get_docset_path(docset_name)?;
     let index_json_path = docset_path.join("index.json");
 
-    let index_exists = index_json_path.try_exists()
-        .map_err(|err| format!("Could not check if `{}` exists: {err}", index_json_path.display()))?;
+    let index_exists = index_json_path.try_exists().map_err(|err| {
+        format!(
+            "Could not check if `{}` exists: {err}",
+            index_json_path.display()
+        )
+    })?;
 
     if !index_exists {
         let message = format!("\
@@ -175,8 +187,12 @@ Please redownload the docset with `download {docset_name} --force`."
 
     let reader = BufReader::new(file);
 
-    let index: IndexJson = serde_json::from_reader(reader)
-        .map_err(|err| format!("Could not deserialize `{}`: {err}", index_json_path.display()))?;
+    let index: IndexJson = serde_json::from_reader(reader).map_err(|err| {
+        format!(
+            "Could not deserialize `{}`: {err}",
+            index_json_path.display()
+        )
+    })?;
 
     let mut items = vec![];
 
@@ -219,12 +235,14 @@ fn get_context_around_query(html_line: &String, index: usize, query_len: usize) 
     let upper_bound = (index + query_len).saturating_add(BOUND_OFFSET);
     let word_end_index = index + query_len;
 
-    let start_pos = html_line.char_indices()
+    let start_pos = html_line
+        .char_indices()
         .rev()
         .find(|&(idx, _)| idx <= lower_bound)
         .map_or(0, |(idx, _)| idx);
 
-    let end_pos = html_line.char_indices()
+    let end_pos = html_line
+        .char_indices()
         .skip_while(|&(idx, _)| idx < word_end_index)
         .find(|&(idx, _)| idx >= upper_bound)
         .map_or(html_line.len(), |(idx, _)| idx);
@@ -263,15 +281,14 @@ fn search_docset_precisely(
         query: &String,
         case_insensitive: bool,
     ) -> Result<(ExactMatches, VagueMatches), String> {
-        let mut exact_files   = vec![];
+        let mut exact_files = vec![];
         let mut vague_results = vec![];
 
         let dir = read_dir(path)
             .map_err(|err| format!("Could not read `{}` directory: {err}", path.display()))?;
 
         for entry in dir {
-            let entry = entry
-                .map_err(|err| format!("Could not read file: {err}"))?;
+            let entry = entry.map_err(|err| format!("Could not read file: {err}"))?;
 
             let os_file_name = entry.file_name();
 
@@ -301,7 +318,10 @@ fn search_docset_precisely(
 
             if file_name.contains(query) {
                 let item = convert_path_to_item(file_path, original_path)?;
-                let exact_match = ExactResult { item, fragment: None };
+                let exact_match = ExactResult {
+                    item,
+                    fragment: None,
+                };
                 exact_files.push(exact_match);
             } else {
                 let file = File::open(&file_path)
@@ -326,8 +346,7 @@ fn search_docset_precisely(
                     };
 
                     if let Some(index) = display_context.find(query) {
-                        let context =
-                            get_context_around_query(&string_buffer, index, query_len);
+                        let context = get_context_around_query(&string_buffer, index, query_len);
 
                         contexts.push(context);
                     }
@@ -346,16 +365,17 @@ fn search_docset_precisely(
         Ok((exact_files, vague_results))
     }
 
-    let (mut exact_files, mut vague_results) =
-        visit_dir_with_query(&docset_path, &docset_path, &internal_query, case_insensitive)?;
+    let (mut exact_files, mut vague_results) = visit_dir_with_query(
+        &docset_path,
+        &docset_path,
+        &internal_query,
+        case_insensitive,
+    )?;
 
     exact_files.sort_unstable();
     vague_results.sort_unstable();
 
-    let items = (
-        exact_files,
-        vague_results,
-    );
+    let items = (exact_files, vague_results);
 
     Ok(items)
 }
@@ -365,10 +385,17 @@ const HALF_TAB: &str = "  ";
 
 fn print_vague_search_results(search_results: &[VagueResult], mut start_index: usize) -> ResultS {
     for result in search_results {
-        println!("{GRAY}{start_index:>4}{RESET}{HALF_TAB}{}{GRAY}", result.item);
+        println!(
+            "{GRAY}{start_index:>4}{RESET}{HALF_TAB}{}{GRAY}",
+            result.item
+        );
 
         for context in &result.contexts {
-            println!("{TAB}{TAB}{GRAYER}...{RESET}{LIGHT_GRAY}{}{}{RESET}{GRAYER}...{RESET}", GRAYEST.bg(), context);
+            println!(
+                "{TAB}{TAB}{GRAYER}...{RESET}{LIGHT_GRAY}{}{}{RESET}{GRAYER}...{RESET}",
+                GRAYEST.bg(),
+                context
+            );
         }
 
         start_index += 1;
@@ -384,9 +411,15 @@ fn print_search_results(search_results: &[ExactResult], mut start_index: usize) 
     for result in search_results {
         if let Some(fragment) = &result.fragment {
             if result.item == prev_item {
-                println!("{TAB}{HALF_TAB}{GRAYER}{start_index:>4}{HALF_TAB}{GRAY}#{}{RESET}", fragment);
+                println!(
+                    "{TAB}{HALF_TAB}{GRAYER}{start_index:>4}{HALF_TAB}{GRAY}#{}{RESET}",
+                    fragment
+                );
             } else {
-                println!("{GRAY}{start_index:>4}{RESET}{HALF_TAB}{}{GRAY}, #{}{RESET}", result.item, fragment);
+                println!(
+                    "{GRAY}{start_index:>4}{RESET}{HALF_TAB}{}{GRAY}, #{}{RESET}",
+                    result.item, fragment
+                );
             }
         } else {
             println!("{GRAY}{start_index:>4}{RESET}{HALF_TAB}{}", result.item);
@@ -404,11 +437,15 @@ fn search_impl(
     // Passing this as a String is needed to check if output was not numeric
     // before parsing it as number
     flag_open: String,
-    flag_columns: String
+    flag_columns: String,
 ) -> Result<Vec<String>, String> {
     let mut warnings = vec![];
 
-    let SearchOptions { ref docset, ref flags, ref query } = search_options;
+    let SearchOptions {
+        ref docset,
+        ref flags,
+        ref query,
+    } = search_options;
 
     let open_number = flag_open.parse::<usize>().ok();
     let mut width = get_terminal_width();
@@ -430,8 +467,7 @@ fn search_impl(
     }
 
     if flags.precise {
-        let (exact_results, vague_results) =
-        if let Some(cache) = try_use_cache(&search_options) {
+        let (exact_results, vague_results) = if let Some(cache) = try_use_cache(&search_options) {
             (cache.exact_results, cache.vague_results)
         } else {
             let (exact, vague) = search_docset_precisely(docset, query, flags.case_insensitive)?;
@@ -441,10 +477,9 @@ fn search_impl(
                 vague_results: Cow::Borrowed(&vague),
             };
 
-            let _ = cache_search_results(&search_options, &search_cache)
-                .map_err(|err| {
-                    warnings.push(format!("Could not write cache: {err}."));
-                });
+            let _ = cache_search_results(&search_options, &search_cache).map_err(|err| {
+                warnings.push(format!("Could not write cache: {err}."));
+            });
 
             (exact.into(), vague.into())
         };
@@ -496,17 +531,16 @@ fn search_impl(
         let results = if let Some(cache) = try_use_cache(&search_options) {
             cache.exact_results
         } else {
-            let exact  = search_docset_in_filenames(docset, query, flags.case_insensitive)?;
+            let exact = search_docset_in_filenames(docset, query, flags.case_insensitive)?;
 
             let search_cache = SearchCache {
                 exact_results: Cow::Borrowed(&exact),
                 vague_results: Cow::Owned(vec![]),
             };
 
-            let _ = cache_search_results(&search_options, &search_cache)
-                .map_err(|err| {
-                    warnings.push(format!("Could not write cache: {err}."));
-                });
+            let _ = cache_search_results(&search_options, &search_cache).map_err(|err| {
+                warnings.push(format!("Could not write cache: {err}."));
+            });
 
             exact.into()
         };
@@ -565,14 +599,16 @@ where
         flag_help: BoolFlag,             ["--help"]
     ];
 
-    let args = parse_flags(&mut args, &mut flags)
-        .map_err(|err| get_flag_error(&err))?;
+    let args = parse_flags(&mut args, &mut flags).map_err(|err| get_flag_error(&err))?;
 
-    if flag_help { return show_search_help(); }
+    if flag_help {
+        return show_search_help();
+    }
 
     if !is_docs_json_exists()? {
         return Err("\
-The list of available documents has not yet been downloaded. Please run `fetch` first.".to_string());
+The list of available documents has not yet been downloaded. Please run `fetch` first."
+            .to_string());
     }
 
     let mut args = args.into_iter();
@@ -593,8 +629,7 @@ The list of available documents has not yet been downloaded. Please run `fetch` 
     }
 
     let query = {
-        let mut merged_args = args.collect::<Vec<String>>()
-            .join(" ");
+        let mut merged_args = args.collect::<Vec<String>>().join(" ");
 
         if flag_whole {
             merged_args.insert(0, ' ');
@@ -613,9 +648,9 @@ The list of available documents has not yet been downloaded. Please run `fetch` 
     };
 
     let search_options = SearchOptions {
-        query:  Cow::Borrowed(&query),
+        query: Cow::Borrowed(&query),
         docset: Cow::Borrowed(&docset),
-        flags:  Cow::Borrowed(&search_flags),
+        flags: Cow::Borrowed(&search_flags),
     };
 
     // Print warnings only after search results

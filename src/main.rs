@@ -1,31 +1,31 @@
 use std::process::ExitCode;
 
 use toiletcli::common::overwrite_should_use_colors;
-use toiletcli::flags::{FlagType, parse_flags_until_subcommand};
 use toiletcli::flags;
+use toiletcli::flags::{parse_flags_until_subcommand, FlagType};
 
 mod common;
 
-use common::ResultS;
 use common::get_flag_error;
-use common::{BOLD, UNDERLINE, GREEN, GRAY, PROGRAM_NAME, RED, RESET, VERSION};
+use common::ResultS;
+use common::{BOLD, GRAY, GREEN, PROGRAM_NAME, RED, RESET, UNDERLINE, VERSION};
 
-mod open;
 mod download;
+mod fetch;
+mod list;
+mod open;
 mod remove;
 mod search;
-mod list;
-mod fetch;
 
 #[cfg(debug_assertions)]
 mod test;
 
+use download::download;
+use fetch::fetch;
+use list::list;
 use open::open;
 use remove::remove;
-use download::download;
 use search::search;
-use list::list;
-use fetch::fetch;
 
 #[cfg(debug_assertions)]
 use test::debug_test;
@@ -35,7 +35,8 @@ fn show_version() -> ResultS {
     let version = format!("{VERSION} debug build");
     #[cfg(not(debug_assertions))]
     let version = VERSION;
-    println!("\
+    println!(
+        "\
 dedoc {version}
 (c) toiletbril <{UNDERLINE}https://github.com/toiletbril{RESET}>
 
@@ -47,7 +48,8 @@ There is NO WARRANTY, to the extent permitted by law."
 }
 
 fn show_help() -> ResultS {
-    println!("\
+    println!(
+        "\
 {GREEN}USAGE{RESET}
     {BOLD}{PROGRAM_NAME}{RESET} <subcommand> [args]
     Search DevDocs pages from terminal.
@@ -97,28 +99,32 @@ where
     }
     if !flag_color.is_empty() {
         match flag_color.as_str() {
-            "y" | "yes" | "on"    => unsafe { overwrite_should_use_colors(true) }
-            "n" | "no"  | "off"   => unsafe { overwrite_should_use_colors(false) }
+            "y" | "yes" | "on" => unsafe { overwrite_should_use_colors(true) },
+            "n" | "no" | "off" => unsafe { overwrite_should_use_colors(false) },
             other => {
-                return Err(format!("Argument `{other}` for `--color <on/off/auto>` is invalid."));
+                return Err(format!(
+                    "Argument `{other}` for `--color <on/off/auto>` is invalid."
+                ));
             }
         }
     }
-    if flag_version { return show_version(); }
-    if flag_help || subcommand.is_empty() { return show_help(); }
+    if flag_version {
+        return show_version();
+    }
+    if flag_help || subcommand.is_empty() {
+        return show_help();
+    }
 
     match subcommand.as_str() {
-        "ft" | "fetch"    => fetch(args),
-        "ls" | "list"     => list(args),
+        "ft" | "fetch" => fetch(args),
+        "ls" | "list" => list(args),
         "dl" | "download" => download(args),
-        "rm" | "remove"   => remove(args),
-        "ss" | "search"   => search(args),
-        "op" | "open"     => open(args),
+        "rm" | "remove" => remove(args),
+        "ss" | "search" => search(args),
+        "op" | "open" => open(args),
         #[cfg(debug_assertions)]
-        "test"            => debug_test(args),
-        other => {
-            Err(format!("Unknown subcommand `{other}`"))
-        }
+        "test" => debug_test(args),
+        other => Err(format!("Unknown subcommand `{other}`")),
     }
 }
 

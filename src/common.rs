@@ -1,13 +1,14 @@
-use std::fs::{create_dir_all, File, read_dir};
 use std::fmt::Display;
-use std::sync::Once;
+use std::fs::{create_dir_all, read_dir, File};
 use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 use dirs;
 
-use html2text::render::text_renderer::{RichAnnotation, TaggedLine, TaggedString, TaggedLineElement::*};
+use html2text::render::text_renderer::{
+    RichAnnotation, TaggedLine, TaggedLineElement::*, TaggedString,
+};
 use html2text::Colour;
 
 use toiletcli::colors::{Color, Style};
@@ -24,7 +25,7 @@ pub(crate) const PROGRAM_NAME: &str = "dedoc_debug";
 #[cfg(not(debug_assertions))]
 pub(crate) const PROGRAM_NAME: &str = "dedoc";
 
-pub(crate) const DEFAULT_DB_JSON_LINK: &str   = "https://documents.devdocs.io";
+pub(crate) const DEFAULT_DB_JSON_LINK: &str = "https://documents.devdocs.io";
 pub(crate) const DEFAULT_DOCS_JSON_LINK: &str = "https://devdocs.io/docs.json";
 
 pub(crate) const DEFAULT_USER_AGENT: &str = "dedoc";
@@ -33,16 +34,16 @@ pub(crate) const DOC_PAGE_EXTENSION: &str = "html";
 
 pub(crate) const DEFAULT_WIDTH: usize = 80;
 
-pub(crate) const RED:        Color = Color::Red;
-pub(crate) const GREEN:      Color = Color::Green;
-pub(crate) const YELLOW:     Color = Color::Yellow;
+pub(crate) const RED: Color = Color::Red;
+pub(crate) const GREEN: Color = Color::Green;
+pub(crate) const YELLOW: Color = Color::Yellow;
 pub(crate) const LIGHT_GRAY: Color = Color::Byte(248);
-pub(crate) const GRAY:       Color = Color::BrightBlack;
-pub(crate) const GRAYER:     Color = Color::Byte(240);
-pub(crate) const GRAYEST:    Color = Color::Byte(234);
-pub(crate) const BOLD:       Style = Style::Bold;
-pub(crate) const UNDERLINE:  Style = Style::Underlined;
-pub(crate) const RESET:      Style = Style::Reset;
+pub(crate) const GRAY: Color = Color::BrightBlack;
+pub(crate) const GRAYER: Color = Color::Byte(240);
+pub(crate) const GRAYEST: Color = Color::Byte(234);
+pub(crate) const BOLD: Style = Style::Bold;
+pub(crate) const UNDERLINE: Style = Style::Underlined;
+pub(crate) const RESET: Style = Style::Reset;
 
 #[macro_export]
 macro_rules! debug_println {
@@ -77,8 +78,7 @@ fn unknown_version() -> String {
 }
 
 #[allow(dead_code)]
-#[derive(Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Default)]
 pub(crate) struct Links {
     home: String,
     code: String,
@@ -147,7 +147,9 @@ macro_rules! print_warning {
 pub(crate) fn get_flag_error(flag_error: &FlagError) -> String {
     match flag_error.error_type {
         FlagErrorType::CannotCombine => format!("Flag `{}` cannot be combined", flag_error.flag),
-        FlagErrorType::NoValueProvided => format!("No value provided for `{}` flag", flag_error.flag),
+        FlagErrorType::NoValueProvided => {
+            format!("No value provided for `{}` flag", flag_error.flag)
+        }
         FlagErrorType::Unknown => format!("Unknown flag `{}`", flag_error.flag),
     }
 }
@@ -158,9 +160,8 @@ pub(crate) fn get_terminal_width() -> usize {
     if let Some((terminal_size::Width(w), _)) = result {
         if w < 120 {
             return w as usize;
-        } else {
-            return 120;
         }
+        return 120;
     }
 
     DEFAULT_WIDTH
@@ -174,10 +175,10 @@ pub(crate) fn split_to_item_and_fragment(path: String) -> Result<(String, Option
         Ok(item)
     } else {
         Err(format!("Invalid page path: {}", path))
-    }?.to_owned();
+    }?
+    .to_owned();
 
-    let fragment = path_split.next()
-        .map(|s| s.to_owned());
+    let fragment = path_split.next().map(|s| s.to_owned());
 
     Ok((item, fragment))
 }
@@ -203,20 +204,20 @@ fn get_tag_style(tagged_string_tags: &Vec<RichAnnotation>) -> String {
             }
             RichAnnotation::Strikeout => {
                 format!("{}", Style::Strikethrough)
-            },
+            }
             RichAnnotation::Code => {
                 format!("{}", Color::BrightBlack)
             }
             RichAnnotation::Preformat(_) => {
                 format!("{}{}", LIGHT_GRAY, GRAYEST.bg())
             }
-            RichAnnotation::Colour(Colour {r, g, b}) => {
+            RichAnnotation::Colour(Colour { r, g, b }) => {
                 format!("{}", Color::RGB(r, g, b))
             }
-            RichAnnotation::BgColour(Colour {r, g, b}) => {
+            RichAnnotation::BgColour(Colour { r, g, b }) => {
                 format!("{}", Color::RGB(r, g, b).bg())
             }
-            _ => continue
+            _ => continue,
         };
 
         style.push_str(&temp_style)
@@ -228,9 +229,8 @@ fn get_tag_style(tagged_string_tags: &Vec<RichAnnotation>) -> String {
 // This function ignores fragment's character case, to support --case-insensitive
 fn get_fragment_bounds(
     tagged_lines: &[TaggedLine<Vec<RichAnnotation>>],
-    fragment: &str
-) -> (Option<usize>, Option<usize>)
-{
+    fragment: &str,
+) -> (Option<usize>, Option<usize>) {
     let lowercase_fragment = fragment.to_lowercase();
 
     let mut current_fragment_line = None;
@@ -239,7 +239,9 @@ fn get_fragment_bounds(
     for (line_number, tagged_line) in tagged_lines.iter().enumerate() {
         for tagged_line_element in tagged_line.iter() {
             match tagged_line_element {
-                FragmentStart(temp_fragment) if temp_fragment.to_lowercase() == lowercase_fragment => {
+                FragmentStart(temp_fragment)
+                    if temp_fragment.to_lowercase() == lowercase_fragment =>
+                {
                     current_fragment_line = Some(line_number);
                     found_fragment = true;
                 }
@@ -255,9 +257,13 @@ fn get_fragment_bounds(
     (current_fragment_line, None)
 }
 
-pub(crate) fn print_docset_file(path: PathBuf, fragment: Option<&String>, width: usize) -> Result<bool, String> {
-    let file = File::open(&path)
-        .map_err(|err| format!("Could not open `{}`: {err}", path.display()))?;
+pub(crate) fn print_docset_file(
+    path: PathBuf,
+    fragment: Option<&String>,
+    width: usize,
+) -> Result<bool, String> {
+    let file =
+        File::open(&path).map_err(|err| format!("Could not open `{}`: {err}", path.display()))?;
     let reader = BufReader::new(file);
 
     let rich_page = html2text::from_read_rich(reader, width);
@@ -286,7 +292,9 @@ pub(crate) fn print_docset_file(path: PathBuf, fragment: Option<&String>, width:
         // @@@: figure out better way to short-circuit search when it fails a test
         #[cfg(debug_assertions)]
         if !is_fragment_found {
-            return Err(format!("debug: #{fragment} is specified but wasn't found in the page"));
+            return Err(format!(
+                "debug: #{fragment} is specified but wasn't found in the page"
+            ));
         }
     }
 
@@ -297,12 +305,15 @@ pub(crate) fn print_docset_file(path: PathBuf, fragment: Option<&String>, width:
     let mut skipped_empty_lines = false;
 
     for (i, rich_line) in rich_page.iter().enumerate() {
-        if is_fragment_found && i < current_fragment_line  { continue; }
-        if has_next_fragment && i > next_fragment_line { break; }
+        if is_fragment_found && i < current_fragment_line {
+            continue;
+        }
+        if has_next_fragment && i > next_fragment_line {
+            break;
+        }
 
-        let tagged_strings: Vec<&TaggedString<Vec<RichAnnotation>>> = rich_line
-            .tagged_strings()
-            .collect();
+        let tagged_strings: Vec<&TaggedString<Vec<RichAnnotation>>> =
+            rich_line.tagged_strings().collect();
 
         let mut line_is_empty = true;
         let is_only_tag = tagged_strings.len() == 1;
@@ -322,8 +333,7 @@ pub(crate) fn print_docset_file(path: PathBuf, fragment: Option<&String>, width:
             if is_only_tag {
                 // Pad preformat to 80 characters for cool background.
                 if let Some(RichAnnotation::Preformat(_)) = tagged_string.tag.first() {
-                    let padding_amount = width
-                        .saturating_sub(tagged_string.s.len());
+                    let padding_amount = width.saturating_sub(tagged_string.s.len());
 
                     for _ in 0..padding_amount {
                         line_buffer += " ";
@@ -352,12 +362,15 @@ pub(crate) fn print_docset_file(path: PathBuf, fragment: Option<&String>, width:
     Ok(is_fragment_found)
 }
 
-pub(crate) fn print_page_from_docset(docset_name: &str, page: &str, fragment: Option<&String>, width: usize) -> Result<bool, String> {
+pub(crate) fn print_page_from_docset(
+    docset_name: &str,
+    page: &str,
+    fragment: Option<&String>,
+    width: usize,
+) -> Result<bool, String> {
     let docset_path = get_docset_path(docset_name)?;
 
-    let page_path_string = docset_path.join(page)
-        .display()
-        .to_string() + "." + DOC_PAGE_EXTENSION;
+    let page_path_string = docset_path.join(page).display().to_string() + "." + DOC_PAGE_EXTENSION;
     let page_path = PathBuf::from(page_path_string);
 
     if !page_path.is_file() {
@@ -373,7 +386,7 @@ No page matching `{page}`. Did you specify the name from `search` correctly?"
 
 #[inline]
 pub(crate) fn get_program_directory() -> Result<PathBuf, String> {
-    let data_dir : PathBuf = dirs::data_dir().unwrap();
+    let data_dir: PathBuf = dirs::data_dir().unwrap();
     let program_path = data_dir.join(PROGRAM_NAME);
     Ok(program_path)
 }
@@ -403,8 +416,7 @@ pub(crate) fn is_docs_json_old() -> Result<bool, String> {
         .metadata()
         .map_err(|err| err.to_string())?;
 
-    let modified_time = metadata.modified()
-        .map_err(|err| err.to_string())?;
+    let modified_time = metadata.modified().map_err(|err| err.to_string())?;
 
     let elapsed_time = SystemTime::now()
         .duration_since(modified_time)
@@ -436,7 +448,7 @@ pub(crate) fn write_to_logfile(message: impl Display) -> Result<PathBuf, String>
 pub(crate) enum SearchMatch {
     Exact,
     Vague(Vec<String>),
-    None
+    None,
 }
 
 // Returns `true` when docset exists in `docs.json`, print a warning otherwise.
@@ -447,7 +459,10 @@ pub(crate) fn is_docset_in_docs_or_print_warning(docset_name: &String, docs: &[D
             let end_index = std::cmp::min(3, vague_matches.len());
             let first_three = &vague_matches[..end_index];
 
-            print_warning!("Unknown docset `{docset_name}`. Did you mean `{}`?", first_three.join("`/`"));
+            print_warning!(
+                "Unknown docset `{docset_name}`. Did you mean `{}`?",
+                first_three.join("`/`")
+            );
         }
         SearchMatch::None => {
             print_warning!("Unknown docset `{docset_name}`. Did you run `fetch`?");
@@ -478,7 +493,8 @@ pub(crate) fn is_docset_in_docs(docset_name: &String, docs: &[Docs]) -> SearchMa
 
 pub(crate) fn get_local_docsets() -> Result<Vec<String>, String> {
     let docsets_path = get_program_directory()?.join("docsets");
-    let docsets_dir_exists = docsets_path.try_exists()
+    let docsets_dir_exists = docsets_path
+        .try_exists()
         .map_err(|err| format!("Could not check `{}`: {err}", docsets_path.display()))?;
 
     let mut result = vec![];
@@ -487,16 +503,12 @@ pub(crate) fn get_local_docsets() -> Result<Vec<String>, String> {
         return Ok(result);
     }
 
-    let docsets_dir = read_dir(docsets_path)
-        .map_err(|err| err.to_string())?;
+    let docsets_dir = read_dir(docsets_path).map_err(|err| err.to_string())?;
 
     for entry in docsets_dir {
-        let entry = entry
-            .map_err(|err| err.to_string())?;
+        let entry = entry.map_err(|err| err.to_string())?;
 
-        let holy_result_option_please_stop = entry.file_name()
-            .to_string_lossy()
-            .to_string();
+        let holy_result_option_please_stop = entry.file_name().to_string_lossy().to_string();
 
         result.push(holy_result_option_please_stop);
     }

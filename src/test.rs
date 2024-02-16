@@ -1,27 +1,28 @@
 #![allow(unused)]
 #![cfg(debug_assertions)]
 
-use std::fs::{File, remove_file, remove_dir_all};
+use std::fs::{remove_dir_all, remove_file, File};
 use std::io::BufReader;
 use std::vec::IntoIter;
 
 use crate::common::ResultS;
-use crate::common::{get_program_directory, get_flag_error};
-use crate::common::{RED, GREEN, BOLD, RESET, PROGRAM_NAME};
+use crate::common::{get_flag_error, get_program_directory};
+use crate::common::{BOLD, GREEN, PROGRAM_NAME, RED, RESET};
 use crate::debug_println;
 
+use crate::download::download;
+use crate::fetch::fetch;
+use crate::list::list;
 use crate::open::open;
 use crate::remove::remove;
-use crate::download::download;
-use crate::search::{SearchOptions, try_use_cache, search};
-use crate::list::list;
-use crate::fetch::fetch;
+use crate::search::{search, try_use_cache, SearchOptions};
 
-use toiletcli::flags::{FlagType, parse_flags};
 use toiletcli::flags;
+use toiletcli::flags::{parse_flags, FlagType};
 
 fn show_test_help() -> ResultS {
-    println!("\
+    println!(
+        "\
 {GREEN}USAGE{RESET}
     {BOLD}{PROGRAM_NAME} test{RESET} [-f] <docset> <page>
     Run the testing suite.
@@ -52,7 +53,8 @@ fn create_args(args: &str) -> IntoIter<String> {
 
 fn run_with_args<O>(
     command: fn(IntoIter<String>) -> Result<O, String>,
-    args_str: &str, should_do: &str
+    args_str: &str,
+    should_do: &str,
 ) -> bool {
     let args = create_args(args_str);
     debug_println!("Running with args: `{args_str}`, should {should_do}");
@@ -77,7 +79,8 @@ fn test_search_should_use_cache(args: &str) {
         let cache_options_file = File::open(cache_options_path).unwrap();
         let cache_options_reader = BufReader::new(cache_options_file);
 
-        let cached_search_options: SearchOptions = serde_json::from_reader(cache_options_reader).unwrap();
+        let cached_search_options: SearchOptions =
+            serde_json::from_reader(cache_options_reader).unwrap();
 
         assert!(try_use_cache(&cached_search_options).is_some());
     }
@@ -99,17 +102,22 @@ where
         flag_help: BoolFlag, ["--help"]
     ];
 
-    let args = parse_flags(&mut args, &mut flags)
-        .map_err(|err| get_flag_error(&err))?;
+    let args = parse_flags(&mut args, &mut flags).map_err(|err| get_flag_error(&err))?;
 
-    if flag_help { return show_test_help(); }
+    if flag_help {
+        return show_test_help();
+    }
     if flag_full {
         reset_state_and_cache();
 
         run_with_args(fetch, "", "fetch docs.json");
         run_with_args(fetch, "", "show a fetch warning");
 
-        run_with_args(remove, "backbone bower", "remove backbone and bower if they exist");
+        run_with_args(
+            remove,
+            "backbone bower",
+            "remove backbone and bower if they exist",
+        );
         run_with_args(download, "backbone bower", "download docsets");
     } else {
         debug_println!("Skipping `fetch` and `download`. Use `-f` flag to avoid skipping.");
@@ -127,19 +135,29 @@ where
     let search_results = [
         run_with_args(search, "backbone -o 1", "open first page"),
         run_with_args(search, "backbone -o 100", "open 100th page"),
-        run_with_args(search, "backbone -i collection-at", "list search results in correct casing"),
+        run_with_args(
+            search,
+            "backbone -i collection-at",
+            "list search results in correct casing",
+        ),
         run_with_args(search, "backbone -i collection-at -o 1", "open first page"),
         run_with_args(search, "backbone -p map", "list precise search results"),
-        run_with_args(search, "backbone -pi underscore", "list underscore.js with right case"),
-
+        run_with_args(
+            search,
+            "backbone -pi underscore",
+            "list underscore.js with right case",
+        ),
         // This fails, because for some reason html2text fails to find fragments that are inside of
         // <li> tags :(
         run_with_args(search, "backbone -o 150", "show model-values"),
-
         run_with_args(search, "bower", "list bower results"),
         run_with_args(search, "bower -o 18", "show update"),
         run_with_args(search, "bower -o 3", "show cache"),
-        run_with_args(search, "bower hahaha nothing", "should result in no matches"),
+        run_with_args(
+            search,
+            "bower hahaha nothing",
+            "should result in no matches",
+        ),
     ];
 
     let times_search_failed = search_results.iter().filter(|res| !*res).count();

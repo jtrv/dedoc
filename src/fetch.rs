@@ -1,23 +1,24 @@
 use std::fs::File;
-use std::path::PathBuf;
 use std::io::BufWriter;
+use std::path::PathBuf;
 
 use attohttpc::get;
 
 use toiletcli::flags;
 use toiletcli::flags::*;
 
-use crate::common::{Docs, ResultS};
 use crate::common::{
-    create_program_directory, get_program_directory, is_docs_json_exists, is_docs_json_old,
-    write_to_logfile, get_flag_error
+    create_program_directory, get_flag_error, get_program_directory, is_docs_json_exists,
+    is_docs_json_old, write_to_logfile,
 };
+use crate::common::{Docs, ResultS};
 use crate::common::{
     BOLD, DEFAULT_DOCS_JSON_LINK, DEFAULT_USER_AGENT, GREEN, PROGRAM_NAME, RESET, VERSION, YELLOW,
 };
 
 fn show_fetch_help() -> ResultS {
-    println!("\
+    println!(
+        "\
 {GREEN}USAGE{RESET}
     {BOLD}{PROGRAM_NAME} fetch{RESET} [-f]
     Fetch latest `docs.json` which lists available languages and frameworks.
@@ -44,8 +45,8 @@ fn fetch_docs() -> Result<Vec<Docs>, String> {
     let docs: Vec<Docs> = serde_json::from_str(body.as_str()).map_err(|err| {
         let result = write_to_logfile(format!("Error while parsing JSON body: {err}\n\n{body}"));
         let log_file_message = match result {
-                Ok(path) => format!("Log file is saved at `{}`.", path.display()),
-                Err(err) => format!("Unable to write log file: {err}."),
+            Ok(path) => format!("Log file is saved at `{}`.", path.display()),
+            Err(err) => format!("Unable to write log file: {err}."),
         };
         format!("Error while parsing JSON body: {err}. {log_file_message}")
     })?;
@@ -54,8 +55,7 @@ fn fetch_docs() -> Result<Vec<Docs>, String> {
 }
 
 fn serialize_and_overwrite_docs(path: PathBuf, docs: Vec<Docs>) -> Result<(), String> {
-    let file = File::create(&path)
-        .map_err(|err| format!("`{}`: {err}", path.display()))?;
+    let file = File::create(&path).map_err(|err| format!("`{}`: {err}", path.display()))?;
 
     let writer = BufWriter::new(file);
 
@@ -77,10 +77,11 @@ where
         flag_help: BoolFlag,  ["--help"]
     ];
 
-    parse_flags(&mut args, &mut flags)
-        .map_err(|err| get_flag_error(&err))?;
+    parse_flags(&mut args, &mut flags).map_err(|err| get_flag_error(&err))?;
 
-    if flag_help { return show_fetch_help(); }
+    if flag_help {
+        return show_fetch_help();
+    }
     if !flag_force && is_docs_json_exists()? && !is_docs_json_old()? {
         let message = format!(
             "\
