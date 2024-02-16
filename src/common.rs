@@ -4,7 +4,7 @@ use std::io::{BufReader, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
-use dirs;
+
 
 use html2text::render::text_renderer::{
     RichAnnotation, TaggedLine, TaggedLineElement::*, TaggedString,
@@ -55,7 +55,7 @@ macro_rules! debug_println {
             eprint!("{RESET}");
         }
         #[cfg(not(debug_assertions))]
-        { () }
+        {  }
     };
 }
 
@@ -215,7 +215,7 @@ fn get_tag_style(tagged_string_tags: &Vec<RichAnnotation>) -> String {
                 format!("{}", Color::RGB(r, g, b))
             }
             RichAnnotation::BgColour(Colour { r, g, b }) => {
-                format!("{}", Color::RGB(r, g, b).bg())
+                Color::RGB(r, g, b).bg().to_string()
             }
             _ => continue,
         };
